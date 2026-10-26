@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neon Snake | لعبة الدودة</title>
+<style>
+  :root {
+    --bg: #080b1b;
+    --panel: rgba(18, 23, 53, .88);
+    --cyan: #35e7ff;
+    --purple: #a855f7;
+    --pink: #ff4fd8;
+    --text: #f4f5ff;
+    --muted: #a8b1d9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; padding: 22px 14px 36px;
+    color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background:
+      radial-gradient(circle at 15% 10%, rgba(168,85,247,.18), transparent 30%),
+      radial-gradient(circle at 90% 25%, rgba(53,231,255,.13), transparent 28%),
+      var(--bg);
+    display: flex; justify-content: center;
+  }
+  .app { width: min(100%, 540px); }
+  header { text-align: center; margin-bottom: 18px; }
+  h1 {
+    margin: 0 0 5px; font-size: clamp(1.8rem, 7vw, 2.7rem);
+    letter-spacing: .02em; color: white;
+    text-shadow: 0 0 12px rgba(53,231,255,.75), 0 0 28px rgba(168,85,247,.6);
+  }
+  header p { margin: 0; color: var(--muted); font-size: .95rem; }
+  .panel {
+    background: var(--panel); border: 1px solid rgba(116,132,255,.28);
+    border-radius: 20px; padding: 15px; box-shadow: 0 15px 45px rgba(0,0,0,.25);
+    backdrop-filter: blur(12px);
+  }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-bottom: 13px; }
+  .stat {
+    text-align: center; padding: 10px 5px; border-radius: 13px;
+    background: rgba(7,11,31,.72); border: 1px solid rgba(53,231,255,.16);
+  }
+  .stat span { display: block; color: var(--muted); font-size: .78rem; }
+  .stat strong { display: block; margin-top: 3px; color: var(--cyan); font-size: 1.35rem; }
+  .board-wrap { position: relative; }
+  canvas {
+    width: 100%; height: auto; aspect-ratio: 1 / 1; display: block;
+    background: #080d23; border-radius: 14px; border: 1px solid rgba(53,231,255,.55);
+    box-shadow: inset 0 0 24px rgba(53,231,255,.06), 0 0 20px rgba(53,231,255,.08);
+    touch-action: none;
+  }
+  .overlay {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 8px; padding: 20px; text-align: center;
+    border-radius: 14px; background: rgba(5,8,25,.78);
+  }
+  .overlay.hidden { display: none; }
+  .overlay h2 { margin: 0; font-size: 1.7rem; text-shadow: 0 0 16px var(--purple); }
+  .overlay p { margin: 0 0 8px; color: var(--muted); }
+  button, select {
+    font: inherit; color: var(--text); background: #171d43;
+    border: 1px solid rgba(53,231,255,.42); border-radius: 12px;
+    padding: 10px 13px; cursor: pointer;
+    transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+  }
+  button:hover { box-shadow: 0 0 15px rgba(53,231,255,.16); }
+  button:active { transform: scale(.97); }
+  .primary {
+    color: #071020; font-weight: 800; border: 0;
+    background: linear-gradient(110deg, var(--cyan), #a7a5ff 55%, var(--pink));
+    box-shadow: 0 0 18px rgba(53,231,255,.2);
+  }
+  .tools { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .tool { display: flex; flex-direction: column; gap: 7px; }
+  .tool label { color: var(--muted); font-size: .82rem; }
+  select { width: 100%; }
+  .actions { display: flex; gap: 8px; margin-top: 12px; }
+  .actions button { flex: 1; }
+  .mobile-controls { margin-top: 14px; display: grid; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(2, 48px); gap: 7px; justify-content: center; }
+  .mobile-controls button { padding: 0; font-size: 1.35rem; background: rgba(25,33,75,.95); box-shadow: 0 0 12px rgba(168,85,247,.08); }
+  .mobile-controls .up { grid-column: 2; grid-row: 1; }
+  .mobile-controls .left { grid-column: 1; grid-row: 2; }
+  .mobile-controls .down { grid-column: 2; grid-row: 2; }
+  .mobile-controls .right { grid-column: 3; grid-row: 2; }
+  .hint { color: var(--muted); text-align: center; font-size: .8rem; margin: 12px 0 0; line-height: 1.6; }
+  .footer { color: #6f7aa8; text-align: center; font-size: .75rem; margin-top: 14px; }
+  @media (min-width: 480px) { .panel { padding: 18px; } }
+</style>
+</head>
+<body>
+<main class="app">
+  <header>
+    <h1>NEON SNAKE ✦</h1>
+    <p>اجمع التفاح، ارفع نقاطك، وتجاوز كل مرحلة!</p>
+  </header>
+
+  <section class="panel">
+    <div class="stats">
+      <div class="stat"><span>النقاط</span><strong id="score">0</strong></div>
+      <div class="stat"><span>المرحلة</span><strong id="level">1</strong></div>
+      <div class="stat"><span>أعلى نتيجة</span><strong id="best">0</strong></div>
+    </div>
+
+    <div class="board-wrap">
+      <canvas id="game" width="400" height="400" aria-label="لوحة لعبة الدودة"></canvas>
+      <div id="overlay" class="overlay">
+        <h2 id="overlayTitle">جاهز للتحدّي؟</h2>
+        <p id="overlayText">استخدم الأسهم أو أزرار التحكم للبدء.</p>
+        <button class="primary" id="startBtn">ابدأ اللعب ✨</button>
+      </div>
+    </div>
+
+    <div class="tools">
+      <div class="tool">
+        <label for="skin">لون الدودة</label>
+        <select id="skin">
+          <option value="cyan">نيون سماوي</option>
+          <option value="purple">بنفسجي كهربائي</option>
+          <option value="pink">وردي لامع</option>
+          <option value="lime">أخضر ليموني</option>
+          <option value="rainbow">قوس قزح 🌈</option>
+        </select>
+      </div>
+      <div class="tool">
+        <label for="soundToggle">الصوت</label>
+        <select id="soundToggle">
+          <option value="on">مفعّل 🔊</option>
+          <option value="off">مكتوم 🔇</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="pauseBtn">إيقاف مؤقت Ⅱ</button>
+      <button id="restartBtn">إعادة اللعب ↻</button>
+    </div>
+
+    <div class="mobile-controls" aria-label="أزرار تحريك الدودة">
+      <button class="up" data-dir="up" aria-label="أعلى">▲</button>
+      <button class="left" data-dir="left" aria-label="يسار">◀</button>
+      <button class="down" data-dir="down" aria-label="أسفل">▼</button>
+      <button class="right" data-dir="right" aria-label="يمين">▶</button>
+    </div>
+    <p class="hint">الكمبيوتر: الأسهم أو W A S D · الموبايل: الأزرار أو اسحب على اللوحة<br>كل 5 تفاحات تنتقل إلى مرحلة أسرع.</p>
+  </section>
+  <div class="footer">NEON SNAKE · تحدّاك تجمع أعلى نتيجة 💜</div>
+</main>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const levelEl = document.getElementById('level');
+  const bestEl = document.getElementById('best');
+  const overlay = document.getElementById('overlay');
+  const overlayTitle = document.getElementById('overlayTitle');
+  const overlayText = document.getElementById('overlayText');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const skinSelect = document.getElementById('skin');
+  const soundToggle = document.getElementById('soundToggle');
+
+  const cell = 20;
+  const count = canvas.width / cell;
+  const skins = {
+    cyan: ['#35e7ff', '#9af6ff'],
+    purple: ['#a855f7', '#dfb5ff'],
+    pink: ['#ff4fd8', '#ffb3ec'],
+    lime: ['#b7ff4a', '#e3ff9e'],
+    rainbow: null
+  };
+
+  let snake, food, direction, nextDirection, score, level, gameState, loopId;
+  let best = 0;
+  try { best = Number(localStorage.getItem('neonSnakeBest') || 0); } catch (_) {}
+  bestEl.textContent = best;
+
+  function sound(freq = 620, duration = 0.09, type = 'sine') {
+    if (soundToggle.value === 'off') return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const audio = sound.audio || (sound.audio = new AudioCtx());
+      if (audio.state === 'suspended') audio.resume();
+      const osc = audio.createOscillator();
+      const gain = audio.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audio.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(80, freq * 0.65), audio.currentTime + duration);
+      gain.gain.setValueAtTime(0.08, audio.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + duration);
+      osc.connect(gain); gain.connect(audio.destination);
+      osc.start(); osc.stop(audio.currentTime + duration);
+    } catch (_) {}
+  }
+
+  function showOverlay(title, text, buttonText) {
+    overlayTitle.textContent = title;
+    overlayText.textContent = text;
+    startBtn.textContent = buttonText;
+    overlay.classList.remove('hidden');
+  }
+  function hideOverlay() { overlay.classList.add('hidden'); }
+
+  function reset() {
+    clearInterval(loopId);
+    snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
+    direction = {x: 1, y: 0};
+    nextDirection = {x: 1, y: 0};
+    score = 0; level = 1; gameState = 'ready';
+    scoreEl.textContent = score;
+    levelEl.textContent = level;
+    pauseBtn.textContent = 'إيقاف مؤقت Ⅱ';
+    spawnFood();
+    draw();
+    showOverlay('جاهز للتحدّي؟', 'استخدم الأسهم أو أزرار التحكم للبدء.', 'ابدأ اللعب ✨');
+  }
+
+  function spawnFood() {
+    do {
+      food = {x: Math.floor(Math.random() * count), y: Math.floor(Math.random() * count)};
+    } while (snake.some(part => part.x === food.x && part.y === food.y));
+  }
+
+  function start() {
+    if (gameState === 'running') return;
+    if (gameState === 'over') reset();
+    gameState = 'running';
+    hideOverlay();
+    runLoop();
+  }
+  function runLoop() {
+    clearInterval(loopId);
+    const delay = Math.max(55, 145 - (level - 1) * 12);
+    loopId = setInterval(tick, delay);
+  }
+
+  function tick() {
+    if (gameState !== 'running') return;
+    direction = nextDirection;
+    const head = {x: snake[0].x + direction.x, y: snake[0].y + direction.y};
+    const ate = head.x === food.x && head.y === food.y;
+    const bodyToCheck = ate ? snake : snake.slice(0, -1);
+    if (head.x < 0 || head.x >= count || head.y < 0 || head.y >= count ||
+        bodyToCheck.some(p => p.x === head.x && p.y === head.y)) {
+      endGame();
+      return;
+    }
+
+    snake.unshift(head);
+    if (ate) {
+      score++;
+      scoreEl.textContent = score;
+      sound(720 + Math.min(level * 40, 400), 0.12, 'triangle');
+      const newLevel = Math.floor(score / 5) + 1;
+      if (newLevel > level) {
+        level = newLevel;
+        levelEl.textContent = level;
+        sound(980, 0.2, 'sine');
+        if (gameState === 'running') runLoop();
+      }
+      if (score > best) {
+        best = score;
+        bestEl.textContent = best;
+        try { localStorage.setItem('neonSnakeBest', String(best)); } catch (_) {}
+      }
+      spawnFood();
+    } else {
+      snake.pop();
+    }
+    draw();
+  }
+
+  function endGame() {
+    gameState = 'over';
+    clearInterval(loopId);
+    sound(180, 0.35, 'sawtooth');
+    draw();
+    showOverlay('انتهت اللعبة! 💥', `نتيجتك ${score} · وصلت إلى المرحلة ${level}`, 'العب مرة ثانية ↻');
+  }
+
+  function pause() {
+    if (gameState === 'running') {
+      gameState = 'paused';
+      clearInterval(loopId);
+      showOverlay('استراحة قصيرة ⏸', 'خذ نفسًا، ثم تابع التحدّي.', 'متابعة اللعب ▶');
+      pauseBtn.textContent = 'متابعة اللعب ▶';
+    } else if (gameState === 'paused') {
+      gameState = 'running';
+      hideOverlay();
+      pauseBtn.textContent = 'إيقاف مؤقت Ⅱ';
+      runLoop();
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#080d23';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // شبكة نيون خفيفة
+    ctx.strokeStyle = 'rgba(76, 101, 185, 0.13)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= count; i++) {
+      ctx.beginPath(); ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, canvas.height); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i * cell); ctx.lineTo(canvas.width, i * cell); ctx.stroke();
+    }
+
+    // تفاحة مضيئة
+    const fx = food.x * cell + cell / 2;
+    const fy = food.y * cell + cell / 2;
+    ctx.save();
+    ctx.shadowColor = '#ff4f7b'; ctx.shadowBlur = 18;
+    ctx.fillStyle = '#ff456b';
+    ctx.beginPath(); ctx.arc(fx, fy + 1, cell * .37, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ff9fb5';
+    ctx.beginPath(); ctx.arc(fx - 4, fy - 3, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#73ff9a'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(fx, fy - 6); ctx.quadraticCurveTo(fx + 2, fy - 12, fx + 7, fy - 10); ctx.stroke();
+    ctx.restore();
+
+    const colors = skins[skinSelect.value];
+    snake.forEach((part, i) => {
+      const x = part.x * cell, y = part.y * cell;
+      let color = colors ? (i === 0 ? colors[1] : colors[0]) : `hsl(${(i * 18 + score * 12) % 360} 100% ${i === 0 ? 78 : 62}%)`;
+      ctx.save();
+      ctx.shadowColor = color; ctx.shadowBlur = i === 0 ? 18 : 10;
+      ctx.fillStyle = color;
+      const pad = i === 0 ? 2 : 3;
+      roundRect(ctx, x + pad, y + pad, cell - pad * 2, cell - pad * 2, 5);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      if (i === 0) {
+        // عينان حسب اتجاه الرأس
+        ctx.fillStyle = '#071020';
+        const eyes = direction.x !== 0
+          ? [{x: x + 10 + direction.x * 4, y: y + 6}, {x: x + 10 + direction.x * 4, y: y + 13}]
+          : [{x: x + 6, y: y + 10 + direction.y * 4}, {x: x + 13, y: y + 10 + direction.y * 4}];
+        eyes.forEach(e => { ctx.beginPath(); ctx.arc(e.x, e.y, 1.7, 0, Math.PI * 2); ctx.fill(); });
+      }
+      ctx.restore();
+    });
+  }
+
+  function roundRect(context, x, y, w, h, r) {
+    context.beginPath();
+    context.moveTo(x + r, y); context.arcTo(x + w, y, x + w, y + h, r);
+    context.arcTo(x + w, y + h, x, y + h, r); context.arcTo(x, y + h, x, y, r);
+    context.arcTo(x, y, x + w, y, r); context.closePath();
+  }
+
+  function changeDirection(name) {
+    const dirs = {
+      up: {x: 0, y: -1}, down: {x: 0, y: 1},
+      left: {x: -1, y: 0}, right: {x: 1, y: 0}
+    };
+    const d = dirs[name];
+    if (!d) return;
+    if (d.x === -direction.x && d.y === -direction.y) return;
+    nextDirection = d;
+    if (gameState === 'ready') start();
+    else if (gameState === 'over') { reset(); start(); nextDirection = d; }
+  }
+
+  document.addEventListener('keydown', event => {
+    const map = {
+      ArrowUp: 'up', w: 'up', W: 'up',
+      ArrowDown: 'down', s: 'down', S: 'down',
+      ArrowLeft: 'left', a: 'left', A: 'left',
+      ArrowRight: 'right', d: 'right', D: 'right'
+    };
+    if (map[event.key]) {
+      event.preventDefault();
+      changeDirection(map[event.key]);
+    } else if (event.key === ' ' || event.key === 'Escape') {
+      event.preventDefault();
+      if (gameState === 'running' || gameState === 'paused') pause();
+      else if (gameState === 'ready') start();
+    }
+  });
+
+  document.querySelectorAll('[data-dir]').forEach(button => {
+    button.addEventListener('click', () => changeDirection(button.dataset.dir));
+  });
+  startBtn.addEventListener('click', () => {
+    if (gameState === 'paused') pause();
+    else if (gameState === 'over') { reset(); start(); }
+    else start();
+  });
+  pauseBtn.addEventListener('click', () => {
+    if (gameState === 'ready') start();
+    else if (gameState === 'over') { reset(); start(); }
+    else pause();
+  });
+  restartBtn.addEventListener('click', () => { reset(); start(); });
+  skinSelect.addEventListener('change', draw);
+
+  // دعم السحب على شاشة اللمس
+  let touchStart = null;
+  canvas.addEventListener('pointerdown', event => {
+    touchStart = {x: event.clientX, y: event.clientY};
+  });
+  canvas.addEventListener('pointerup', event => {
+    if (!touchStart) return;
+    const dx = event.clientX - touchStart.x;
+    const dy = event.clientY - touchStart.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > 18) {
+      if (Math.abs(dx) > Math.abs(dy)) changeDirection(dx > 0 ? 'right' : 'left');
+      else changeDirection(dy > 0 ? 'down' : 'up');
+    }
+    touchStart = null;
+  });
+
+  reset();
+})();
+</script>
+</body>
+</html>

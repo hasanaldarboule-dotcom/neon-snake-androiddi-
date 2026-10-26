@@ -1,0 +1,6 @@
+{
+  "appId": "com.neonsnake.game",
+  "appName": "Neon Snake",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
